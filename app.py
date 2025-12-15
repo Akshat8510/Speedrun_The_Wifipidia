@@ -100,9 +100,9 @@ st.caption("Now with Weighted Keyword Scoring to avoid 'Category Traps'")
 
 col1, col2 = st.columns(2)
 with col1:
-    start_input = st.text_input("Start Page", value="")
+    start_input = st.text_input("Start Page", value="butter")
 with col2:
-    target_input = st.text_input("Target Page", value="")
+    target_input = st.text_input("Target Page", value="war")
 
 start_btn = st.button("🚀 Start Speedrun", type="primary")
 
@@ -214,4 +214,5 @@ if start_btn:
             st.markdown(f"**Total Clicks:** {len(final_path) - 1}")
         else:
             st.error("💀 The AI got lost.")
+
 
