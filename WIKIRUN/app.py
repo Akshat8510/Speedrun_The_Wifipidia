@@ -7,32 +7,31 @@ from sentence_transformers import SentenceTransformer, util
 # --- PAGE CONFIG ---
 st.set_page_config(page_title="Wiki Speedrun AI", page_icon="🧠", layout="centered")
 
-# --- 1. CONFIGURATION & CONSTANTS ---
-BEAM_WIDTH = 3
+# --- 1. CONFIGURATION ---
+BEAM_WIDTH = 4        # Increased to explore more options
 MAX_STEPS = 50
-KEYWORD_BONUS = 0.25
+UNIQUE_WORD_BONUS = 0.2  # Bonus per matching word
+HUB_BONUS = 0.4          # Bonus for finding a Hub
 
-# THE HUB STRATEGY: 
-# If the AI gets confused (low score), it will prioritize these pages to reset its path.
+# Global Hubs to escape traps
 GLOBAL_HUBS = {
     "india", "united states", "science", "mathematics", "history", 
-    "education", "university", "technology", "earth", "asia", "europe", "africa"
+    "education", "university", "technology", "earth", "asia", "europe", "africa",
+    "list of universities in india", "states and union territories of india"
 }
 
-# --- 2. CACHED RESOURCE LOADING ---
+# --- 2. CACHED RESOURCES ---
 @st.cache_resource
 def load_model():
     return SentenceTransformer('all-MiniLM-L6-v2')
 
 @st.cache_resource
 def get_wiki_agent():
-    # Randomize user agent slightly to prevent shared-IP blocking
     return wikipediaapi.Wikipedia(
-        user_agent='StreamlitWikiBot/2.0 (educational)',
+        user_agent='StreamlitWikiBot/3.0 (educational)',
         language='en'
     )
 
-# Load resources immediately
 try:
     model = load_model()
     wiki = get_wiki_agent()
@@ -40,7 +39,7 @@ except Exception as e:
     st.error(f"Error loading resources: {e}")
     st.stop()
 
-# --- 3. HELPER FUNCTIONS ---
+# --- 3. CORE FUNCTIONS ---
 
 def get_valid_links(page_obj):
     links = []
@@ -61,38 +60,43 @@ def resolve_redirect(title):
 
 def calculate_score(link_title, target_title, link_vector, target_vector):
     """
-    Calculates the priority score for a link.
-    Logic: Vector Similarity + Keyword Match + Hub Bonus
+    Advanced Scoring: 
+    Vector Similarity + Word Overlap Count + Hub Bonus
     """
-    # 1. Base Semantic Score (Vector Math)
-    vec_score = util.cos_sim(link_vector, target_vector).item()
+    # 1. Vector Similarity
+    score = util.cos_sim(link_vector, target_vector).item()
     
-    # 2. Keyword Bonus
+    # 2. Keyword Stacking (The Fix for "Institute" loops)
     t_words = set(target_title.lower().split())
     l_words = set(link_title.lower().split())
-    stop_words = {'the', 'of', 'in', 'and', 'a', 'to', 'for', 'is', 'on', 'disambiguation', 'university', 'institute'}
+    
+    # Remove generic words that cause confusion
+    stop_words = {
+        'the', 'of', 'in', 'and', 'a', 'to', 'for', 'is', 'on', 
+        'disambiguation', 'institute', 'university', 'college', 'technology', 'engineering'
+    }
     
     clean_target = t_words - stop_words
     clean_link = l_words - stop_words
     
-    score = vec_score
+    # Calculate overlap count
+    overlap = clean_target.intersection(clean_link)
     
-    # If words overlap, give a bonus
-    if not clean_target.isdisjoint(clean_link):
-        score += KEYWORD_BONUS
+    # Add bonus for EACH unique matching word (e.g. "Kalinga", "Odisha")
+    if overlap:
+        score += (len(overlap) * UNIQUE_WORD_BONUS)
 
-    # 3. THE HUB STRATEGY (Panic Button)
-    # If the vector score is low (AI is confused), boost Hub pages to find a way out.
+    # 3. Hub Strategy
     if link_title.lower() in GLOBAL_HUBS:
-        # Only apply hub bonus if we aren't already finding good matches (score < 0.4)
-        if vec_score < 0.4: 
-            score += 0.3  # Massive boost to force a reset to a main page
+        # Only use hub if we aren't finding direct keyword matches
+        if len(overlap) == 0 and score < 0.5:
+            score += HUB_BONUS
             
     return score
 
 # --- 4. UI LAYOUT ---
 st.title("🧠 AI Wikipedia Speedrunner")
-st.markdown("Watch an AI navigate from point A to point B using Semantic Vector Search.")
+st.caption("Now with Weighted Keyword Scoring to avoid 'Category Traps'")
 
 col1, col2 = st.columns(2)
 with col1:
@@ -102,7 +106,7 @@ with col2:
 
 start_btn = st.button("🚀 Start Speedrun", type="primary")
 
-# --- 5. RUNNER LOGIC ---
+# --- 5. EXECUTION LOGIC ---
 if start_btn:
     if not start_input or not target_input:
         st.warning("Please enter both pages.")
@@ -111,21 +115,19 @@ if start_btn:
     status_container = st.container()
     
     with status_container:
-        st.info("Resolving titles and initializing AI...")
+        st.info("Initializing...")
         start_title = resolve_redirect(start_input)
         target_title = resolve_redirect(target_input)
         
         target_embedding = model.encode(target_title, convert_to_tensor=True)
         
-        # Priority Queue: (-Score, [Path])
         queue = [(-0.0, [start_title])]
         visited = set([start_title])
         steps = 0
         
-        # UI Elements for live updates
         progress_bar = st.progress(0)
         current_step_text = st.empty()
-        log_expander = st.expander("View AI Thinking Process", expanded=True)
+        log_expander = st.expander("View AI Reasoning", expanded=True)
         
         start_time = time.time()
         success = False
@@ -135,40 +137,38 @@ if start_btn:
             steps += 1
             progress_bar.progress(min(steps * 2, 100))
             
-            # Get best option
+            # Pop best path
             score, path = heapq.heappop(queue)
             current_title = path[-1]
             
             current_step_text.markdown(f"**Step {steps}:** Visiting `{current_title}` (Score: {-score:.2f})")
             
-            # Update Logs
             with log_expander:
-                st.write(f"📍 At: **{current_title}**")
+                st.write(f"📍 **{current_title}**")
 
-            # WIN CONDITION
-            if current_title.lower() == target_title.lower() or \
-               (target_title.lower() in current_title.lower() and "disambiguation" in current_title.lower()):
-                success = True
-                final_path = path
-                break
+            # WIN CHECKS
+            if current_title.lower() == target_title.lower():
+                success = True; final_path = path; break
             
-            # Fetch Links
+            # Substring check for long university names
+            if target_title.lower() in current_title.lower() and len(current_title) < len(target_title) + 10:
+                 success = True; final_path = path; break
+
+            # Get Links
             current_page = wiki.page(current_title)
             links = get_valid_links(current_page)
             
             if not links: continue
                 
-            # Quick Win Check
+            # Quick Win
             matches = [l for l in links if l.lower() == target_title.lower()]
             if matches:
                 path.append(matches[0])
-                success = True
-                final_path = path
-                break
+                success = True; final_path = path; break
             
             # AI Processing
-            # Limit links to scan to keep speed high
-            links_to_scan = links[:150] if len(links) > 150 else links
+            # Scan top 200 links to ensure we don't miss "Odisha"
+            links_to_scan = links[:200] if len(links) > 200 else links
             link_vectors = model.encode(links_to_scan, convert_to_tensor=True, show_progress_bar=False)
             
             scored_links = []
@@ -178,12 +178,12 @@ if start_btn:
                 
             scored_links.sort(key=lambda x: x[0], reverse=True)
             
-            # Show top 3 choices in logs for user to see
+            # Logging top choices
             with log_expander:
                 top_choices = [f"{l} ({s:.2f})" for s, l in scored_links[:3]]
-                st.caption(f"Top ideas: {', '.join(top_choices)}")
+                st.caption(f"Next best: {', '.join(top_choices)}")
 
-            # Beam Search: Add best options to queue
+            # Beam Search
             added = 0
             for s, link in scored_links:
                 if link not in visited:
@@ -197,20 +197,20 @@ if start_btn:
         
         end_time = time.time()
 
-        # --- RESULTS ---
+        # --- FINAL OUTPUT ---
         if success:
             st.balloons()
             st.success(f"🏆 TARGET REACHED in {end_time - start_time:.2f} seconds!")
-            st.markdown("### The Path:")
             
             path_str = ""
             for i, p in enumerate(final_path):
+                link = f"https://en.wikipedia.org/wiki/{p.replace(' ', '_')}"
                 if i < len(final_path) - 1:
-                    path_str += f"[{p}](https://en.wikipedia.org/wiki/{p.replace(' ', '_')}) ➡️ "
+                    path_str += f"[{p}]({link}) ➡️ "
                 else:
-                    path_str += f"**[{p}](https://en.wikipedia.org/wiki/{p.replace(' ', '_')})**"
+                    path_str += f"**[{p}]({link})**"
             
             st.markdown(path_str)
             st.markdown(f"**Total Clicks:** {len(final_path) - 1}")
         else:
-            st.error("💀 The AI got lost or ran out of steps. Try a Global Hub in the path!")
+            st.error("💀 The AI got lost.")
