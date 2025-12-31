@@ -19,24 +19,28 @@ def load_resources():
 
 model, wiki = load_resources()
 
-# --- 4. UI LAYOUT ---
+# --- UI LAYOUT ---
 st.title("🧠 AI Wikipedia Speedrunner")
 st.markdown("Watch an AI navigate from point A to point B using Semantic Vector Search.")
 
-# 👇 YOU ARE MISSING THIS LINE 👇
+# Create columns for inputs
 col1, col2 = st.columns(2) 
 
-# Now you can use col1
 with col1:
     start_input = st.text_input("Start Page", placeholder="e.g. SpongeBob SquarePants")
 
-# And col2
 with col2:
     target_input = st.text_input("Target Page", placeholder="e.g. Nuclear Power")
 
+# Single Button Definition
 start_btn = st.button("🚀 Start Speedrun", type="primary")
 
-if st.button("🚀 Start Run", type="primary"):
+# --- EXECUTION LOGIC ---
+if start_btn:
+    if not start_input or not target_input:
+        st.warning("Please enter both pages.")
+        st.stop()
+
     start_title = scraper.resolve_redirect(wiki, start_input)
     target_title = scraper.resolve_redirect(wiki, target_input)
     
@@ -48,9 +52,12 @@ if st.button("🚀 Start Run", type="primary"):
         st.write(f"**Path:** {' ➡️ '.join(cached_path)}")
         
         # Show Graph
-        graph_file = visualizer.create_graph(cached_path)
-        with open(graph_file, 'r', encoding='utf-8') as f:
-            st.components.v1.html(f.read(), height=410)
+        try:
+            graph_file = visualizer.create_graph(cached_path)
+            with open(graph_file, 'r', encoding='utf-8') as f:
+                st.components.v1.html(f.read(), height=410)
+        except Exception as e:
+            st.warning(f"Could not generate graph: {e}")
             
     else:
         # 2. RUN AI (If not in memory)
@@ -115,7 +122,7 @@ if st.button("🚀 Start Run", type="primary"):
         
         # 3. RESULT
         if found_path:
-            st.balloons()
+            st.toast("Correct Answer! 🎉")
             st.success("Target Reached!")
             st.write(f"**Path:** {' ➡️ '.join(found_path)}")
             
@@ -123,11 +130,11 @@ if st.button("🚀 Start Run", type="primary"):
             database.save_run(start_title, target_title, found_path)
             
             # Visualize
-            graph_file = visualizer.create_graph(found_path)
-            with open(graph_file, 'r', encoding='utf-8') as f:
-                st.components.v1.html(f.read(), height=410)
+            try:
+                graph_file = visualizer.create_graph(found_path)
+                with open(graph_file, 'r', encoding='utf-8') as f:
+                    st.components.v1.html(f.read(), height=410)
+            except Exception as e:
+                pass # Graph might fail on read-only systems, just ignore
         else:
-
             st.error("Failed to find path.")
-
-
