@@ -3,3 +3,5 @@ sentence-transformers
 wikipedia-api
 numpy
 torch
+pyvis
+networkx
