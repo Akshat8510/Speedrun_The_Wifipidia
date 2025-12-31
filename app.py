@@ -19,15 +19,22 @@ def load_resources():
 
 model, wiki = load_resources()
 
-# --- UI ---
-st.title("🧠 Wiki Speedrun AI Pro")
-st.caption("Powered by Vector Search, SQLite Memory, and Interactive Graphs")
+# --- 4. UI LAYOUT ---
+st.title("🧠 AI Wikipedia Speedrunner")
+st.markdown("Watch an AI navigate from point A to point B using Semantic Vector Search.")
 
+# 👇 YOU ARE MISSING THIS LINE 👇
+col1, col2 = st.columns(2) 
+
+# Now you can use col1
 with col1:
-    # Removed 'value', added 'placeholder' for ghost text
     start_input = st.text_input("Start Page", placeholder="e.g. SpongeBob SquarePants")
+
+# And col2
 with col2:
     target_input = st.text_input("Target Page", placeholder="e.g. Nuclear Power")
+
+start_btn = st.button("🚀 Start Speedrun", type="primary")
 
 if st.button("🚀 Start Run", type="primary"):
     start_title = scraper.resolve_redirect(wiki, start_input)
@@ -122,4 +129,5 @@ if st.button("🚀 Start Run", type="primary"):
         else:
 
             st.error("Failed to find path.")
+
 
