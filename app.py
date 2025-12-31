@@ -23,11 +23,11 @@ model, wiki = load_resources()
 st.title("🧠 Wiki Speedrun AI Pro")
 st.caption("Powered by Vector Search, SQLite Memory, and Interactive Graphs")
 
-col1, col2 = st.columns(2)
 with col1:
-    start_input = st.text_input("Start Page", value="Data Analyst")
+    # Removed 'value', added 'placeholder' for ghost text
+    start_input = st.text_input("Start Page", placeholder="e.g. SpongeBob SquarePants")
 with col2:
-    target_input = st.text_input("Target Page", value="Banana")
+    target_input = st.text_input("Target Page", placeholder="e.g. Nuclear Power")
 
 if st.button("🚀 Start Run", type="primary"):
     start_title = scraper.resolve_redirect(wiki, start_input)
@@ -122,3 +122,4 @@ if st.button("🚀 Start Run", type="primary"):
         else:
 
             st.error("Failed to find path.")
+
