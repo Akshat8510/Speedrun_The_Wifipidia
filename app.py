@@ -25,9 +25,9 @@ st.caption("Powered by Vector Search, SQLite Memory, and Interactive Graphs")
 
 col1, col2 = st.columns(2)
 with col1:
-    start_input = st.text_input("Start Page", value="Achyuta")
+    start_input = st.text_input("Start Page", value="Data Analyst")
 with col2:
-    target_input = st.text_input("Target Page", value="Kalinga Institute of Industrial Technology")
+    target_input = st.text_input("Target Page", value="Banana")
 
 if st.button("🚀 Start Run", type="primary"):
     start_title = scraper.resolve_redirect(wiki, start_input)
@@ -120,4 +120,5 @@ if st.button("🚀 Start Run", type="primary"):
             with open(graph_file, 'r', encoding='utf-8') as f:
                 st.components.v1.html(f.read(), height=410)
         else:
+
             st.error("Failed to find path.")
