@@ -10,7 +10,7 @@ A smart, autonomous AI agent that plays the **Wikipedia Game** (navigating from 
 
 This is the **Pro Version** of the speedrunner. Unlike basic bots, this version features **Long-Term Memory (SQLite)**, **Interactive Graph Visualization**, and a modular architecture. It runs **live on the internet** without needing massive database dumps.
 
-**🔴 [LIVE DEMO: Click here to try the AI!]([https://wifispeedrunner8510.streamlit.app/])**
+🔴 **Live Demo:** [Try the AI Application](https://wifispeedrunner8510.streamlit.app/)
 
 ---
 
